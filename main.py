@@ -8,6 +8,7 @@ import sqlite3
 import uuid
 import os
 from pydantic import BaseModel
+from mangum import Mangum
 
 app = FastAPI()
 
@@ -214,3 +215,6 @@ async def convert_pdf_to_excel(file: UploadFile = File(...), x_api_key: str = He
     )
     response.headers["X-Conversions-Used"] = str(new_count)
     return response
+
+# معالج Vercel Serverless (Mangum Handler)
+handler = Mangum(app)
