@@ -4,3 +4,5 @@ pdfplumber
 pandas
 openpyxl
 mangum
+pydantic
+python-multipart
