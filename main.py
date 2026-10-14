@@ -1,11 +1,12 @@
 from fastapi import FastAPI, UploadFile, File, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, HTMLResponse
 import pdfplumber
 import pandas as pd
 import io
 import sqlite3
 import uuid
+import os
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -51,6 +52,14 @@ class ResetPassword(BaseModel):
 
 class UpgradeRequest(BaseModel):
     email: str
+
+# مسار عرض الواجهة الرئيسية تلقائياً (index.html)
+@app.get("/", response_class=HTMLResponse)
+async def serve_frontend():
+    if os.path.exists("index.html"):
+        with open("index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    return "<h1>index.html not found</h1>"
 
 # 1. مسار تسجيل حساب جديد
 @app.post("/register")
@@ -133,7 +142,6 @@ def upgrade_user(data: UpgradeRequest):
 async def payment_webhook(request: Request):
     try:
         data = await request.json()
-        # استخراج الإيميل من بيانات منصة الدفع (حسب هيكل Lemon Squeezy / Stripe)
         email = data.get("data", {}).get("attributes", {}).get("user_email")
         
         if email:
@@ -164,7 +172,6 @@ async def convert_pdf_to_excel(file: UploadFile = File(...), x_api_key: str = He
     
     conversions_used, plan = user
     
-    # التحقق من القيود المجانية
     if plan == 'free' and conversions_used >= 3:
         conn.close()
         raise HTTPException(
@@ -172,7 +179,6 @@ async def convert_pdf_to_excel(file: UploadFile = File(...), x_api_key: str = He
             detail="لقد استهلكت جميع المحاولات المجانية (3/3). يرجى الترقية إلى الباقة الاحترافية Pro للتحويل اللامحدود!"
         )
     
-    # معالجة الملف واستخراج الجداول
     contents = await file.read()
     all_tables = []
     
@@ -194,7 +200,6 @@ async def convert_pdf_to_excel(file: UploadFile = File(...), x_api_key: str = He
         df.to_excel(writer, index=False, header=False)
     output.seek(0)
     
-    # زيادة عداد التحويلات
     cursor.execute("UPDATE users SET conversions_used = conversions_used + 1 WHERE api_key = ?", (x_api_key,))
     conn.commit()
     
